@@ -13,7 +13,7 @@ console.TEXT_COLOR = {255, 255, 255, 255}
 console.ERROR_COLOR = {255, 0, 0, 255}
 
 console.FONT_SIZE = 12
-console.FONT = nil
+console.FONT = love.graphics.newFont(console.FONT_SIZE)
 
 -- The scope in which lines in the console are executed.
 console.ENV = setmetatable({}, {__index = _G})
@@ -101,10 +101,6 @@ function console.draw()
   -- Only draw the console if enabled.
   if not enabled then return end
 
-  if console.FONT == nil then
-    console.FONT = love.graphics.newFont(console.FONT_SIZE)
-  end
-
   -- Fill the background color.
   love.graphics.setColor(unpack(console.BACKGROUND_COLOR))
   love.graphics.rectangle('fill', 0, 0, love.graphics.getWidth(),
@@ -134,15 +130,15 @@ function console.draw()
 
   love.graphics.line(0,
     love.graphics.getHeight() - console.VERTICAL_MARGIN
-      - console.FONT_SIZE - console.VERTICAL_MARGIN,
+      - console.FONT:getHeight() - console.VERTICAL_MARGIN,
     love.graphics.getWidth(),
     love.graphics.getHeight() - console.VERTICAL_MARGIN
-      - console.FONT_SIZE - console.VERTICAL_MARGIN)
+      - console.FONT:getHeight() - console.VERTICAL_MARGIN)
 
   love.graphics.printf(
     console.PROMPT .. command.text,
     console.HORIZONTAL_MARGIN,
-    love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT_SIZE,
+    love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT:getHeight(),
     love.graphics.getWidth() - console.HORIZONTAL_MARGIN*2, "left")
 
   if love.timer.getTime() % 1 > 0.5 then
@@ -150,7 +146,7 @@ function console.draw()
       console.FONT:getWidth(console.PROMPT .. command.text:sub(0, command.cursor))
     love.graphics.line(
       cursorx,
-      love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT_SIZE,
+      love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT:getHeight(),
       cursorx,
       love.graphics.getHeight() - console.VERTICAL_MARGIN)
   end
@@ -163,7 +159,7 @@ function console.textinput(input)
     return
   end
 
-  -- If disabled, ignore the input, otherwise insert at cursor.
+  -- If disabled, ignore the input, otherwise insert at the cursor.
   if not enabled then return end
   command:insert(input)
 end
@@ -200,14 +196,21 @@ function console.keypressed(key, scancode, isrepeat)
   if not enabled then return end
 
   local ctrl = love.keyboard.isDown("lctrl", "lgui")
+  local shift = love.keyboard.isDown("lshift")
 
   if key == 'backspace' then command:delete_backward()
+
   elseif key == "left" then command:backward_character()
   elseif key == "right" then command:forward_character()
+
   elseif key == "c" and ctrl then command:clear()
-  elseif (key == "=" or key == "+") and ctrl then
-    console.FONT_SIZE = console.FONT_SIZE + 1
-    console.FONT = love.graphics.newFont(console.FONT_SIZE)
+
+  elseif key == "=" and shift and ctrl then
+      console.FONT_SIZE = console.FONT_SIZE + 1
+      console.FONT = love.graphics.newFont(console.FONT_SIZE)
+  elseif key == "-" and ctrl then
+      console.FONT_SIZE = math.max(console.FONT_SIZE - 1, 1)
+      console.FONT = love.graphics.newFont(console.FONT_SIZE)
   elseif key == "return" then
     console.execute(command.text)
     command:clear()
