@@ -105,6 +105,16 @@ local command = {
   backward_character = function(self)
     self.cursor = math.max(self.cursor - 1, 0)
   end,
+  beginning_of_line = function(self) self.cursor = 0 end,
+  end_of_line = function(self) self.cursor = self.text:len() end,
+  forward_word = function(self)
+    local word = self.text:match('%W*%w*', self.cursor + 1)
+    self.cursor = math.min(self.cursor + word:len())
+  end,
+  backward_word = function(self)
+    local word = self.text:reverse():match('%W*%w*', self.text:len() - self.cursor + 1)
+    self.cursor = math.max(self.cursor - word:len(), 0)
+  end,
   previous = function(self)
     -- If there is no more history, don't do anything.
     if self.history_index + 1 > #history then return end
@@ -236,11 +246,18 @@ function console.keypressed(key, scancode, isrepeat)
 
   local ctrl = love.keyboard.isDown("lctrl", "lgui")
   local shift = love.keyboard.isDown("lshift")
+  local alt = love.keyboard.isDown("lalt")
 
   if key == 'backspace' then command:delete_backward()
 
   elseif key == "up" then command:previous()
   elseif key == "down" then command:next()
+
+  elseif alt and key == "left" then command:backward_word()
+  elseif alt and key == "right" then command:forward_word()
+
+  elseif ctrl and key == "left" then command:beginning_of_line()
+  elseif ctrl and key == "right" then command:end_of_line()
 
   elseif key == "left" then command:backward_character()
   elseif key == "right" then command:forward_character()
