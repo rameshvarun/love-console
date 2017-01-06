@@ -7,16 +7,26 @@ console.PROMPT = "> " -- The prompt symbol.
 console.MAX_LINES = 200 -- How many lines to store in the buffer.
 console.HISTORY_SIZE = 100 -- How much of history to store.
 
+-- Color configurations.
+console.BACKGROUND_COLOR = {0, 0, 0, 100}
+console.TEXT_COLOR = {255, 255, 255, 255}
+console.ERROR_COLOR = {255, 0, 0, 255}
+
 console.FONT_SIZE = 12
 console.FONT = nil
 
+-- The scope in which lines in the console are executed.
 console.ENV = setmetatable({}, {__index = _G})
 
--- Utilty functions for clamping a number to a range, mapping and filtering
--- a table, and pushing a set of elements to the end of a table.
-local function clamp(x, min, max)
-  return x < min and min or (x > max and max or x)
-end
+-- Builtin commands.
+console.COMMANDS = {
+  clear = function() console.clear() end,
+  quit = function() love.event.quit(0) end,
+  exit = function() love.event.quit(0) end
+}
+
+-- Utilty functions for mapping and filtering a table, and pushing a set of
+-- elements to the end of a table.
 local function map(tbl, f)
     local t = {}
     for k,v in pairs(tbl) do t[k] = f(v) end
@@ -58,24 +68,46 @@ _G.print = function(...)
   end
 end
 
-local current_command, cursor, history_location = "", 1, 0
-function clear_command()
-  current_command = ""
-  cursor = 0
-end
-function clamp_cursor()
-  cursor = clamp(cursor, 0, current_command:len())
-end
+-- Helper object that encapuslates operations on the current command.
+local command = {
+  clear = function(self)
+    -- Clear the current command.
+    self.text, self.cursor = "", 0
+  end,
+  insert = function(self, input)
+    -- Inert text at the cursor.
+    self.text = self.text:sub(0, self.cursor) ..
+      input .. self.text:sub(self.cursor + 1)
+    self.cursor = self.cursor + 1
+  end,
+  delete_backward = function(self)
+    -- Delete the character before the cursor.
+    if self.cursor > 0 then
+      self.text = self.text:sub(0, self.cursor - 1) ..
+        self.text:sub(self.cursor + 1)
+      self.cursor = self.cursor - 1
+    end
+  end,
+  forward_character = function(self)
+    self.cursor = math.min(self.cursor + 1, self.text:len())
+  end,
+  backward_character = function(self)
+    self.cursor = math.max(self.cursor - 1, 0)
+  end
+}
+command:clear()
 
 function console.draw()
+  -- Only draw the console if enabled.
+  if not enabled then return end
+
   if console.FONT == nil then
     console.FONT = love.graphics.newFont(console.FONT_SIZE)
   end
 
-  if not enabled then return end
-  love.graphics.setColor(0, 0, 0, 100)
-  love.graphics.rectangle('fill', 0, 0,
-    love.graphics.getWidth(),
+  -- Fill the background color.
+  love.graphics.setColor(unpack(console.BACKGROUND_COLOR))
+  love.graphics.rectangle('fill', 0, 0, love.graphics.getWidth(),
     love.graphics.getHeight())
 
   love.graphics.setColor(255, 255, 255, 255)
@@ -107,16 +139,15 @@ function console.draw()
     love.graphics.getHeight() - console.VERTICAL_MARGIN
       - console.FONT_SIZE - console.VERTICAL_MARGIN)
 
-  clamp_cursor()
   love.graphics.printf(
-    console.PROMPT .. current_command,
+    console.PROMPT .. command.text,
     console.HORIZONTAL_MARGIN,
     love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT_SIZE,
     love.graphics.getWidth() - console.HORIZONTAL_MARGIN*2, "left")
 
   if love.timer.getTime() % 1 > 0.5 then
     local cursorx = console.HORIZONTAL_MARGIN +
-      console.FONT:getWidth(console.PROMPT .. current_command:sub(0, cursor))
+      console.FONT:getWidth(console.PROMPT .. command.text:sub(0, command.cursor))
     love.graphics.line(
       cursorx,
       love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT_SIZE,
@@ -126,26 +157,20 @@ function console.draw()
 end
 
 function console.textinput(input)
+  -- Use the "~" key to enable / disable the console.
   if input == "~" then
     enabled = not enabled
     return
   end
 
+  -- If disabled, ignore the input, otherwise insert at cursor.
   if not enabled then return end
-
-  current_command =
-    current_command:sub(0, cursor) .. input ..
-    current_command:sub(cursor + 1)
-  cursor = cursor + 1
-  clamp_cursor()
+  command:insert(input)
 end
 
-local function execute(command)
-  if command == "clear" then
-    console.clear()
-    return
-  elseif command == "quit" or command == "exit" then
-    love.event.quit(0)
+function console.execute(command)
+  if console.COMMANDS[command] then
+    console.COMMANDS[command]()
     return
   end
 
@@ -163,41 +188,29 @@ local function execute(command)
       table.remove(values, 1)
       print(unpack(values))
     else
-      console.colorprint({{255, 0, 0, 255}, values[2]})
+      console.colorprint({console.ERROR_COLOR, values[2]})
     end
   else
-    console.colorprint({{255, 0, 0, 255}, error})
+    console.colorprint({console.ERROR_COLOR, error})
   end
 end
 
 function console.keypressed(key, scancode, isrepeat)
+  -- Ignore if the console isn't enabled.
   if not enabled then return end
 
-  if key == 'backspace' then
-    if cursor > 0 then
-      current_command =
-        current_command:sub(0, cursor - 1) .. current_command:sub(cursor + 1)
-      cursor = cursor - 1
-      clamp_cursor()
-    end
-  elseif key == "left" then
-    cursor = cursor - 1
-    clamp_cursor()
-  elseif key == "right" then
-    cursor = cursor + 1
-    clamp_cursor()
-  elseif key == "c" then
-    if love.keyboard.isDown("lctrl", "lgui") then
-      clear_command()
-    end
-  elseif key == "=" or key == "+" then
-    if love.keyboard.isDown("lctrl", "lgui") then
-      console.FONT_SIZE = console.FONT_SIZE + 1
-      console.FONT = love.graphics.newFont(console.FONT_SIZE)
-    end
+  local ctrl = love.keyboard.isDown("lctrl", "lgui")
+
+  if key == 'backspace' then command:delete_backward()
+  elseif key == "left" then command:backward_character()
+  elseif key == "right" then command:forward_character()
+  elseif key == "c" and ctrl then command:clear()
+  elseif (key == "=" or key == "+") and ctrl then
+    console.FONT_SIZE = console.FONT_SIZE + 1
+    console.FONT = love.graphics.newFont(console.FONT_SIZE)
   elseif key == "return" then
-    execute(current_command)
-    clear_command()
+    console.execute(command.text)
+    command:clear()
   end
 end
 

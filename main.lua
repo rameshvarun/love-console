@@ -1,5 +1,7 @@
 console = require "console"
 
+love.keyboard.setKeyRepeat(true)
+
 function love.keypressed(key, scancode, isrepeat)
   console.keypressed(key, scancode, isrepeat)
 end
