@@ -3,22 +3,25 @@ local console = {}
 console.HORIZONTAL_MARGIN = 10 -- Horizontal margin between the text and window.
 console.VERTICAL_MARGIN = 10 -- Vertical margins between components.
 console.PROMPT = "> " -- The prompt symbol.
+
 console.MAX_LINES = 200 -- How many lines to store in the buffer.
+console.HISTORY_SIZE = 100 -- How much of history to store.
+
 console.FONT_SIZE = 12
 console.FONT = nil
 
 console.ENV = setmetatable({}, {__index = _G})
 
+-- Utilty functions for clamping a number to a range, mapping and filtering
+-- a table, and pushing a set of elements to the end of a table.
 local function clamp(x, min, max)
   return x < min and min or (x > max and max or x)
 end
-
 local function map(tbl, f)
     local t = {}
     for k,v in pairs(tbl) do t[k] = f(v) end
     return t
 end
-
 local function filter(tbl, f)
   local t, i = {}, 1
   for _, v in ipairs(tbl) do
@@ -26,12 +29,13 @@ local function filter(tbl, f)
   end
   return t
 end
-
 local function push(tbl, ...)
   for _, v in ipairs({...}) do table.insert(tbl, v) end
 end
 
+-- Store global state for whether or not the console is enabled / disabled.
 local enabled = false
+function console.isEnabled() return enabled end
 
 -- Store the printed lines in a buffer.
 local lines = {}
@@ -42,7 +46,7 @@ function console.clear() lines = {} end
 -- string value.
 function console.colorprint(coloredtext) table.insert(lines, coloredtext) end
 
--- Wrap the print function to store to the buffer.
+-- Wrap the print function and redirect it to store into the line buffer.
 local normal_print = print
 _G.print = function(...)
   local args = {...}
@@ -54,7 +58,7 @@ _G.print = function(...)
   end
 end
 
-local current_command, cursor = "", 1
+local current_command, cursor, history_location = "", 1, 0
 function clear_command()
   current_command = ""
   cursor = 0
@@ -120,8 +124,6 @@ function console.draw()
       love.graphics.getHeight() - console.VERTICAL_MARGIN)
   end
 end
-
-function console.isEnabled() return enabled end
 
 function console.textinput(input)
   if input == "~" then
