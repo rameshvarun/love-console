@@ -1,5 +1,23 @@
 local console = {}
 
+-- Utilty functions for mapping and filtering a table, and pushing a set of
+-- elements to the end of a table.
+local function map(tbl, f)
+    local t = {}
+    for k,v in pairs(tbl) do t[k] = f(v) end
+    return t
+end
+local function filter(tbl, f)
+  local t, i = {}, 1
+  for _, v in ipairs(tbl) do
+    if f(v) then t[i], i = v, i + 1 end
+  end
+  return t
+end
+local function push(tbl, ...)
+  for _, v in ipairs({...}) do table.insert(tbl, v) end
+end
+
 console.HORIZONTAL_MARGIN = 10 -- Horizontal margin between the text and window.
 console.VERTICAL_MARGIN = 10 -- Vertical margins between components.
 console.PROMPT = "> " -- The prompt symbol.
@@ -25,22 +43,9 @@ console.COMMANDS = {
   exit = function() love.event.quit(0) end
 }
 
--- Utilty functions for mapping and filtering a table, and pushing a set of
--- elements to the end of a table.
-local function map(tbl, f)
-    local t = {}
-    for k,v in pairs(tbl) do t[k] = f(v) end
-    return t
-end
-local function filter(tbl, f)
-  local t, i = {}, 1
-  for _, v in ipairs(tbl) do
-    if f(v) then t[i], i = v, i + 1 end
-  end
-  return t
-end
-local function push(tbl, ...)
-  for _, v in ipairs({...}) do table.insert(tbl, v) end
+-- Overrideable function that is used for formatting return values.
+console.INSPECT_FUNCTION = function(...)
+  return table.concat(map({...}, tostring), "\t")
 end
 
 -- Store global state for whether or not the console is enabled / disabled.
@@ -50,6 +55,12 @@ function console.isEnabled() return enabled end
 -- Store the printed lines in a buffer.
 local lines = {}
 function console.clear() lines = {} end
+
+-- Store previously executed commands in a history buffer.
+local history = {}
+function console.addHistory(command)
+  table.insert(history, 1, command)
+end
 
 -- Print a colored text to the console. Colored text is simply represented
 -- as a table of values that alternate between an {r, g, b, a} object and a
@@ -72,7 +83,7 @@ end
 local command = {
   clear = function(self)
     -- Clear the current command.
-    self.text, self.cursor = "", 0
+    self.text, self.cursor, self.history_index = "", 0, 0
   end,
   insert = function(self, input)
     -- Inert text at the cursor.
@@ -93,6 +104,27 @@ local command = {
   end,
   backward_character = function(self)
     self.cursor = math.max(self.cursor - 1, 0)
+  end,
+  previous = function(self)
+    -- If there is no more history, don't do anything.
+    if self.history_index + 1 > #history then return end
+
+    -- If this is the first time, then save the command in case the user
+    -- navigates back to the present command.
+    if self.history_index == 0 then self.saved_command = self.text end
+
+    self.history_index = math.min(self.history_index + 1, #history)
+    self.text = history[self.history_index]
+    self.cursor = self.text:len()
+  end,
+  next = function(self)
+    -- If there is no more history, don't do anything.
+    if self.history_index - 1 < 0 then return end
+    self.history_index = math.max(self.history_index - 1, 0)
+
+    if self.history_index == 0 then self.text = self.saved_command
+    else self.text = history[self.history_index] end
+    self.cursor = self.text:len()
   end
 }
 command:clear()
@@ -165,11 +197,13 @@ function console.textinput(input)
 end
 
 function console.execute(command)
+  -- If this is a builtin command, execute it and return immediately.
   if console.COMMANDS[command] then
     console.COMMANDS[command]()
     return
   end
 
+  -- Reprint the command + the prompt string.
   print(console.PROMPT .. command)
 
   local chunk, error = load("return " .. command)
@@ -179,10 +213,15 @@ function console.execute(command)
 
   if chunk then
     setfenv(chunk, console.ENV)
-    local values = {pcall(chunk)}
+    local values = { pcall(chunk) }
     if values[1] then
       table.remove(values, 1)
-      print(unpack(values))
+      print(console.INSPECT_FUNCTION(unpack(values)))
+
+      -- Bind '_' to the first returned value, and bind 'last' to a list
+      -- of returned values.
+      console.ENV._ = values[1]
+      console.ENV.last = values
     else
       console.colorprint({console.ERROR_COLOR, values[2]})
     end
@@ -200,6 +239,9 @@ function console.keypressed(key, scancode, isrepeat)
 
   if key == 'backspace' then command:delete_backward()
 
+  elseif key == "up" then command:previous()
+  elseif key == "down" then command:next()
+
   elseif key == "left" then command:backward_character()
   elseif key == "right" then command:forward_character()
 
@@ -211,7 +253,9 @@ function console.keypressed(key, scancode, isrepeat)
   elseif key == "-" and ctrl then
       console.FONT_SIZE = math.max(console.FONT_SIZE - 1, 1)
       console.FONT = love.graphics.newFont(console.FONT_SIZE)
+
   elseif key == "return" then
+    console.addHistory(command.text)
     console.execute(command.text)
     command:clear()
   end
