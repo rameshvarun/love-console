@@ -169,6 +169,8 @@ function console.draw()
       wraplimit, "left")
     line_start = line_start - #wrapped * console.FONT:getHeight()
   end
+    
+  love.graphics.setLineWidth(1)
 
   love.graphics.line(0,
     love.graphics.getHeight() - console.VERTICAL_MARGIN
