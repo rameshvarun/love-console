@@ -1,7 +1,23 @@
+--[[
+The ISC License
+
+Copyright (c) Varun Ramesh
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT,
+OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+]]--
+
 local console = {}
 
--- Utilty functions for mapping and filtering a table, and pushing a set of
--- elements to the end of a table.
+-- Utilty functions for manipulating tables.
 local function map(tbl, f)
     local t = {}
     for k,v in pairs(tbl) do t[k] = f(v) end
@@ -26,9 +42,9 @@ console.MAX_LINES = 200 -- How many lines to store in the buffer.
 console.HISTORY_SIZE = 100 -- How much of history to store.
 
 -- Color configurations.
-console.BACKGROUND_COLOR = {0, 0, 0, 100}
-console.TEXT_COLOR = {255, 255, 255, 255}
-console.ERROR_COLOR = {255, 0, 0, 255}
+console.BACKGROUND_COLOR = {0, 0, 0, 0.4}
+console.TEXT_COLOR = {1, 1, 1, 1}
+console.ERROR_COLOR = {1, 0, 0, 1}
 
 console.FONT_SIZE = 12
 console.FONT = love.graphics.newFont(console.FONT_SIZE)
@@ -169,7 +185,7 @@ function console.draw()
       wraplimit, "left")
     line_start = line_start - #wrapped * console.FONT:getHeight()
   end
-    
+
   love.graphics.setLineWidth(1)
 
   love.graphics.line(0,
