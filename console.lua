@@ -59,9 +59,30 @@ console.COMMANDS = {
   exit = function() love.event.quit(0) end
 }
 
+function console.inspect(val)
+  if type(val) == "table"  then
+    local mt = getmetatable(val)
+    if mt and mt.__tostring then return tostring(val) end
+
+    local result = "{ "
+    for k, v in pairs(val) do
+      result = result .. tostring(k) .. " = " .. tostring(v) .. ", "
+    end
+    result = result .. "}"
+    return result
+  else
+    return tostring(val)
+  end
+end
+
 -- Overrideable function that is used for formatting return values.
 console.INSPECT_FUNCTION = function(...)
-  return table.concat(map({...}, tostring), "\t")
+  local args = {...}
+  if #args == 0 then
+    return "nil"
+  else
+    return table.concat(map(args, console.inspect), "\t")
+  end
 end
 
 -- Store global state for whether or not the console is enabled / disabled.
