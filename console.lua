@@ -86,6 +86,7 @@ function console.colorprint(coloredtext) table.insert(lines, coloredtext) end
 -- Wrap the print function and redirect it to store into the line buffer.
 local normal_print = print
 _G.print = function(...)
+  normal_print(...) -- Call original print function.
   local args = {...}
   local line = table.concat(map({...}, tostring), "\t")
   push(lines, line)
