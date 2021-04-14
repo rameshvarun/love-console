@@ -18,7 +18,7 @@
 ## Integrating the Console
 
 ```lua
-console = require "console"
+local console = require "console"
 love.keyboard.setKeyRepeat(true) -- Not required.
 
 function love.keypressed(key, scancode, isrepeat)

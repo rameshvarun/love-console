@@ -1,4 +1,4 @@
-console = require "console"
+local console = require "console"
 love.keyboard.setKeyRepeat(true)
 
 local rectangle = {
