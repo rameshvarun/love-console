@@ -85,12 +85,24 @@ console.COMMAND_HELP = {
 
 function console.inspect(val)
   if type(val) == "table"  then
+    -- If this table has a tostring function, just use that.
     local mt = getmetatable(val)
     if mt and mt.__tostring then return tostring(val) end
 
     local result = "{ "
+
+    -- First print out array-like keys, keeping track of which keys we've seen.
+    local seen = {}
+    for k, v in ipairs(val) do
+      result = result .. tostring(v) .. ", "
+      seen[k] = true
+    end
+
+    -- Now print out the reset of the keys.
     for k, v in pairs(val) do
-      result = result .. tostring(k) .. " = " .. tostring(v) .. ", "
+      if seen[k] ~= true then
+        result = result .. tostring(k) .. " = " .. tostring(v) .. ", "
+      end
     end
     result = result .. "}"
     return result
