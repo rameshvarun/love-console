@@ -52,11 +52,35 @@ console.FONT = love.graphics.newFont(console.FONT_SIZE)
 -- The scope in which lines in the console are executed.
 console.ENV = setmetatable({}, {__index = _G})
 
+-- The default help text shown.
+console.HELP_TEXT = [[==== Welcome to the In-Game Console ====
+- Type any expression or statement to evaluate it.
+- Type a built-in command to run it (type `commands` to list all commands).]]
+
 -- Builtin commands.
 console.COMMANDS = {
   clear = function() console.clear() end,
   quit = function() love.event.quit(0) end,
-  exit = function() love.event.quit(0) end
+  exit = function() love.event.quit(0) end,
+  help = function() print(console.HELP_TEXT) end,
+  commands = function()
+    print ("=== Available Commands ===")
+    for k, _ in pairs(console.COMMANDS) do
+      if console.COMMAND_HELP[k] then
+        print(k .. " - " .. console.COMMAND_HELP[k])
+      else
+        print(k)
+      end
+    end
+  end
+}
+
+console.COMMAND_HELP = {
+  clear = "Clear the sceen.",
+  quit = "Quit the game.",
+  exit = "Quit the game.",
+  help = "Print help text.",
+  commands = "List all commands."
 }
 
 function console.inspect(val)
