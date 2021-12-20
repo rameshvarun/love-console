@@ -19,9 +19,9 @@ local console = {}
 
 -- Utilty functions for manipulating tables.
 local function map(tbl, f)
-    local t = {}
-    for k,v in pairs(tbl) do t[k] = f(v) end
-    return t
+  local t = {}
+  for k, v in pairs(tbl) do t[k] = f(v) end
+  return t
 end
 local function filter(tbl, f)
   local t, i = {}, 1
@@ -31,7 +31,16 @@ local function filter(tbl, f)
   return t
 end
 local function push(tbl, ...)
-  for _, v in ipairs({...}) do table.insert(tbl, v) end
+  for _, v in ipairs({...}) do
+    table.insert(tbl, v)
+  end
+end
+local function keys(tbl)
+  local keys_tbl = {}
+  for k, _ in pairs(tbl) do
+    table.insert(keys_tbl, k)
+  end
+  return keys_tbl
 end
 
 console.HORIZONTAL_MARGIN = 10 -- Horizontal margin between the text and window.
@@ -44,6 +53,7 @@ console.HISTORY_SIZE = 100 -- How much of history to store.
 -- Color configurations.
 console.BACKGROUND_COLOR = {0, 0, 0, 0.4}
 console.TEXT_COLOR = {1, 1, 1, 1}
+console.COMPLETION_TEXT_COLOR = {1, 1, 1, 0.4}
 console.ERROR_COLOR = {1, 0, 0, 1}
 
 console.FONT_SIZE = 12
@@ -267,6 +277,32 @@ function console.draw()
       love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT:getHeight(),
       cursorx,
       love.graphics.getHeight() - console.VERTICAL_MARGIN)
+  end
+
+  if command.text:len() > 0 then
+    local completion = console.completion(command.text)
+    if completion then
+      local suggested = completion:sub(command.text:len() + 1, -1)
+
+      love.graphics.setColor(unpack(console.COMPLETION_TEXT_COLOR))
+      local autocompletex = console.FONT:getWidth(console.PROMPT .. command.text)
+      love.graphics.printf(
+        suggested,
+        console.HORIZONTAL_MARGIN + autocompletex,
+        love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT:getHeight(),
+        love.graphics.getWidth() - console.HORIZONTAL_MARGIN*2 - autocompletex, "left")
+    end
+  end
+end
+
+function console.completion(partial)
+  local possible_completions = keys(console.ENV)
+  possible_completions = filter(possible_completions, function(possible_completion)
+    return partial == possible_completion:sub(1, partial:len())
+  end)
+
+  if #possible_completions > 0 then
+    return possible_completions[1]
   end
 end
 
