@@ -167,13 +167,19 @@ end
 local command = {
   clear = function(self)
     -- Clear the current command.
-    self.text, self.cursor, self.history_index = "", 0, 0
+    self.text = ""
+    self.cursor = 0
+    self.history_index = 0
+    self.completion = nil
   end,
   insert = function(self, input)
     -- Inert text at the cursor.
     self.text = self.text:sub(0, self.cursor) ..
       input .. self.text:sub(self.cursor + 1)
     self.cursor = self.cursor + 1
+
+    -- Update completion.
+    self:update_completion()
   end,
   delete_backward = function(self)
     -- Delete the character before the cursor.
@@ -182,9 +188,16 @@ local command = {
         self.text:sub(self.cursor + 1)
       self.cursor = self.cursor - 1
     end
+
+    -- Update completion.
+    self:update_completion()
   end,
   forward_character = function(self)
-    self.cursor = math.min(self.cursor + 1, self.text:len())
+    if self.completion and self.cursor == self.text:len() then
+      self:complete()
+    else
+      self.cursor = math.min(self.cursor + 1, self.text:len())
+    end
   end,
   backward_character = function(self)
     self.cursor = math.max(self.cursor - 1, 0)
@@ -210,6 +223,9 @@ local command = {
     self.history_index = math.min(self.history_index + 1, #history)
     self.text = history[self.history_index]
     self.cursor = self.text:len()
+
+    -- Update completion.
+    self:update_completion()
   end,
   next = function(self)
     -- If there is no more history, don't do anything.
@@ -219,6 +235,24 @@ local command = {
     if self.history_index == 0 then self.text = self.saved_command
     else self.text = history[self.history_index] end
     self.cursor = self.text:len()
+
+    -- Update completion.
+    self:update_completion()
+  end,
+
+  update_completion = function(self)
+    if self.text:len() > 0 then
+      self.completion = console.completion(self.text)
+    else
+      self.completion = nil
+    end
+  end,
+  complete = function(self)
+    if self.completion then
+      self.text = self.completion
+      self.cursor = self.text:len()
+      self.completion = nil
+    end
   end
 }
 command:clear()
@@ -279,19 +313,16 @@ function console.draw()
       love.graphics.getHeight() - console.VERTICAL_MARGIN)
   end
 
-  if command.text:len() > 0 then
-    local completion = console.completion(command.text)
-    if completion then
-      local suggested = completion:sub(command.text:len() + 1, -1)
+  if command.completion ~= nil then
+    local suggested = command.completion:sub(command.text:len() + 1, -1)
 
-      love.graphics.setColor(unpack(console.COMPLETION_TEXT_COLOR))
-      local autocompletex = console.FONT:getWidth(console.PROMPT .. command.text)
-      love.graphics.printf(
-        suggested,
-        console.HORIZONTAL_MARGIN + autocompletex,
-        love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT:getHeight(),
-        love.graphics.getWidth() - console.HORIZONTAL_MARGIN*2 - autocompletex, "left")
-    end
+    love.graphics.setColor(unpack(console.COMPLETION_TEXT_COLOR))
+    local autocompletex = console.FONT:getWidth(console.PROMPT .. command.text)
+    love.graphics.printf(
+      suggested,
+      console.HORIZONTAL_MARGIN + autocompletex,
+      love.graphics.getHeight() - console.VERTICAL_MARGIN - console.FONT:getHeight(),
+      love.graphics.getWidth() - console.HORIZONTAL_MARGIN*2 - autocompletex, "left")
   end
 end
 
@@ -387,6 +418,9 @@ function console.keypressed(key, scancode, isrepeat)
     console.addHistory(command.text)
     console.execute(command.text)
     command:clear()
+
+  elseif key == "tab" then
+    command:complete()
   end
 end
 
