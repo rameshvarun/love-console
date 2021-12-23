@@ -42,6 +42,15 @@ local function keys(tbl)
   end
   return keys_tbl
 end
+local function concat(...)
+  local tbl = {}
+  for _, t in ipairs({...}) do
+    for _, v in ipairs(t) do
+      table.insert(tbl, v)
+    end
+  end
+  return tbl
+end
 
 console.HORIZONTAL_MARGIN = 10 -- Horizontal margin between the text and window.
 console.VERTICAL_MARGIN = 10 -- Vertical margins between components.
@@ -252,6 +261,9 @@ local command = {
       self.text = self.completion
       self.cursor = self.text:len()
       self.completion = nil
+
+      -- Update completion.
+      self:update_completion()
     end
   end
 }
@@ -327,11 +339,21 @@ function console.draw()
 end
 
 function console.completion(partial)
-  local possible_completions = keys(console.ENV)
+  -- Generate a list of all possible completions.
+  local possible_completions = concat(keys(console.ENV), keys(console.COMMANDS), history)
+
+  -- Filter out completions that don't match the currently typed text.
   possible_completions = filter(possible_completions, function(possible_completion)
-    return partial == possible_completion:sub(1, partial:len())
+    return possible_completion:len() > partial:len()
+      and partial == possible_completion:sub(1, partial:len())
   end)
 
+  -- Sort completions by length.
+  table.sort(possible_completions, function(a, b)
+    return a:len() < b:len()
+  end)
+
+  -- If we have at least one valid completion, return it.
   if #possible_completions > 0 then
     return possible_completions[1]
   end
