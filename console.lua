@@ -410,8 +410,8 @@ function console.keypressed(key, scancode, isrepeat)
   if not enabled then return end
 
   local ctrl = love.keyboard.isDown("lctrl", "lgui")
-  local shift = love.keyboard.isDown("lshift")
-  local alt = love.keyboard.isDown("lalt")
+  local shift = love.keyboard.isDown("lshift", "rshift")
+  local alt = love.keyboard.isDown("lalt", "ralt")
 
   if key == 'backspace' then command:delete_backward()
 
